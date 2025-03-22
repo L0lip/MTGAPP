@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, TextInput, FlatList, TouchableOpacity, Modal, Button, Alert, ActivityIndicator, ImageBackground } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from "expo-router";
@@ -11,6 +11,7 @@ import { useCollections } from "@/components/CollectionContext"; // Importing th
 import { useTheme } from "@/components/ThemeContext";
 import { useHaptics } from '@/components/HapticContext'; 
 import * as Haptics from 'expo-haptics'; 
+import { camera } from 'expo-camera';
 
 interface Card {
   id: string;
@@ -45,6 +46,12 @@ export default function SearchPage() {
   const [page, setPage] = useState(1); // State to track the current page for pagination
   const [hasMore, setHasMore] = useState(true); // State to track if there are more cards to load
   const { hapticsEnabled } = useHaptics(); // Access the hapticsEnabled state
+  const [activeModal, setActiveModal] = useState<'none' | 'scan' | 'collection'>('none');
+
+
+  const [hasPermission, setHasPermission] = useState(null); // State for camera permission
+  const [scanning, setScanning] = useState(false); // State to control scanning status
+  const cameraRef = useRef<Camera | null>(null);
 
   // Fetch sets when the component mounts
   useEffect(() => {
@@ -69,6 +76,78 @@ export default function SearchPage() {
       fetchCards();
     }
   }, [search, selectedSet, selectedColor, page]); // Re-fetch when search, selectedSet, selectedColor, or page changes
+
+  useEffect(() => {
+    if (activeModal !== 'none') {
+      // Show active modal logic
+      setModalVisible(true);
+    } else {
+      setModalVisible(false); // Close modal when 'none'
+    }
+  }, [activeModal]);
+
+  // Request camera permission  
+  useEffect(() => {
+    const requestCameraPermission = async () => {
+      console.log('Requesting camera permission...');
+      const { status } = await Camera.requestPermissionsAsync();
+      console.log('Permission status:', status);
+      setHasPermission(status === 'granted');
+    };
+  
+    requestCameraPermission();
+  }, []);
+  
+  
+  
+
+  // Function to handle the capture of a card image
+  const captureCardImage = async () => {
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync();
+      if (photo.uri) {
+        // Send photo to Magic Card Scanner API for processing
+        scanCard(photo.uri);
+      }
+    }
+  };
+
+  // Function to send the image to the API
+  const scanCard = async (imageUri: string) => {
+    setScanning(true); // Set scanning to true while waiting for the response
+
+    // Convert the image to base64 or send as a file depending on API requirements
+    const base64Image = await fetch(imageUri)
+      .then(res => res.blob())
+      .then(blob => blob.arrayBuffer())
+      .then(buffer => Buffer.from(buffer).toString('base64'));
+
+    try {
+      const response = await fetch('https://your-magic-card-scanner-api-endpoint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: base64Image, // or send as FormData depending on the API's expectation
+        }),
+      });
+      const data = await response.json();
+      
+      if (data && data.card) {
+        // Handle card data received from the API
+        setSelectedCard(data.card); // Set selected card based on API response
+        Alert.alert('Card Scanned', `Card Name: ${data.card.name}`);
+      } else {
+        Alert.alert('Scan Failed', 'Could not recognize the card.');
+      }
+    } catch (error) {
+      console.error('Error scanning card:', error);
+      Alert.alert('Scan Failed', 'There was an error scanning the card.');
+    } finally {
+      setScanning(false);
+    }
+  };
 
   const fetchCards = () => {
     setLoading(true);
@@ -174,6 +253,48 @@ export default function SearchPage() {
         <View style={HomeStyles.header}>
           <ThemedText type="title" style={{ color: textColor }}>MTG Card Database</ThemedText>
         </View>
+        {/* Add a button to open the camera */}
+        <TouchableOpacity onPress={() => {
+  if (hasPermission) {
+    setActiveModal('scan'); // Only open modal if permission is granted
+  } else {
+    Alert.alert('Permission Denied', 'Please grant camera access to scan a card.');
+  }
+}}>
+  <Ionicons name="camera" size={30} color={textColor} />
+  <ThemedText>Scan Card</ThemedText>
+</TouchableOpacity>
+
+        {/* Camera Modal */}
+        {activeModal === 'scan' && (
+  <Modal visible={activeModal === 'scan'} transparent={false} animationType="slide">
+    <View style={{ flex: 1 }}>
+      {hasPermission === null ? (
+        // Show loading while waiting for permission
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : !hasPermission ? (
+        // Show message when permission is denied
+        <ThemedText>No access to camera</ThemedText>
+      ) : (
+        // Camera is ready, render Camera component
+        <Camera
+          style={{ flex: 1 }}
+          type={Camera.Constants.Type.back}
+          ref={cameraRef}
+        >
+          <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+            <TouchableOpacity onPress={captureCardImage} style={{ backgroundColor: 'white', padding: 10, borderRadius: 50 }}>
+              <Ionicons name="camera" size={40} color="black" />
+            </TouchableOpacity>
+          </View>
+        </Camera>
+      )}
+    </View>
+  </Modal>
+)}
+
+          
+          {/* Search Section */}
         <View style={HomeStyles.searchContainer}>
           <TextInput
             style={[HomeStyles.searchInput]} // Change typed text color to match theme
@@ -252,10 +373,13 @@ export default function SearchPage() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={HomeStyles.addButton}
-                onPress={() => {handleAddCard(card)
+                onPress={() => {
+                  handleAddCard(card)
                   if (hapticsEnabled) {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }
+                  setActiveModal('collection')
+                  
                 }}
                 activeOpacity={0.7}
               >
@@ -270,32 +394,29 @@ export default function SearchPage() {
           columnWrapperStyle={HomeStyles.cardGrid} // Apply grid style to column wrapper
         />
 
-        {/* Modal to Select a Collection */}
-        <Modal visible={modalVisible} transparent animationType="slide">
-          <View style={{ flex: 1, justifyContent: "center", backgroundColor: "rgba(0,0,0,0.7)" }}>
-            <ThemedView style={{ padding: 20, backgroundColor: "#333", borderRadius: 10 }}>
-              <ThemedText>Select a Collection</ThemedText>
-              {collections.map((collection) => (
-                <TouchableOpacity
-                  key={collection.id}
-                  onPress={() => {addToCollection(collection.id)
-                    if (hapticsEnabled) {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }
-                  }}
-                  style={HomeStyles.collectionButton}
-                >
-                  <ThemedText style={HomeStyles.collectionButtonText}>{collection.name}</ThemedText>
-                </TouchableOpacity>
-              ))}
-              <Button title="Cancel" onPress={() => {setModalVisible(false)
-                if (hapticsEnabled) {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
-              }} />
-            </ThemedView>
-          </View>
-        </Modal>
+        {/* Collection Selection Modal */}
+        {activeModal === 'collection' && (
+  <Modal visible={activeModal === 'collection'} transparent animationType="slide">
+    <View style={{ flex: 1, justifyContent: "center", backgroundColor: "rgba(0,0,0,0.7)" }}>
+      <ThemedView style={{ padding: 20, backgroundColor: "#333", borderRadius: 10 }}>
+        <ThemedText>Select a Collection</ThemedText>
+        {collections.map((collection) => (
+          <TouchableOpacity
+            key={collection.id}
+            onPress={() => {
+              addToCollection(collection.id);
+              setActiveModal('none'); // Close the modal after adding
+            }}
+            style={HomeStyles.collectionButton}
+          >
+            <ThemedText style={HomeStyles.collectionButtonText}>{collection.name}</ThemedText>
+          </TouchableOpacity>
+        ))}
+        <Button title="Cancel" onPress={() => setActiveModal('none')} />
+      </ThemedView>
+    </View>
+  </Modal>
+)}
       </ThemedView>
     </ImageBackground>
   );
