@@ -55,9 +55,8 @@ export default function HomePage() {
                     })
                     if (hapticsEnabled) {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                }
-              }
+                    }
+                  }}
                 >
                   <ThemedText style={{ color: textColor }}>{collection.name}</ThemedText>
                 </TouchableOpacity>
@@ -84,10 +83,10 @@ export default function HomePage() {
                     if (hapticsEnabled) {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }
-                  }
-                }
+                  }}
                 >
-                  <CardImage uri={card.imageUri || "https://via.placeholder.com/100"} width={styles.cardImage.width} height={styles.cardImage.height} />
+                  
+                  <CardImage uri={card.imageUri} />
                   <ThemedText style={{ color: textColor, textAlign: "center" }}>{card.name}</ThemedText>
                 </TouchableOpacity>
               ))

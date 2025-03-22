@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Image, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from "react";
+import { Image, StyleSheet, View, Text } from "react-native";
+import { ThemedText } from "@/components/ThemedText";
 
 interface CardImageProps {
   uri: string;
@@ -28,9 +29,17 @@ function CardImage({ uri, width = 100 }: CardImageProps) {
     }
   }, [uri]);
 
+  if (!validImage) {
+    return (
+      <View >
+        <ThemedText>No Image</ThemedText>
+      </View>
+    );
+  }
+
   return (
     <Image
-      source={{ uri: validImage ? uri : "https://via.placeholder.com/150" }} // Fallback image
+      source={{ uri }}
       style={[styles.image, { width, aspectRatio }]}
       resizeMode="contain"
     />
@@ -40,6 +49,18 @@ function CardImage({ uri, width = 100 }: CardImageProps) {
 const styles = StyleSheet.create({
   image: {
     borderRadius: 8,
+  },
+  noImageContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ccc",
+    padding: 10,
+    borderRadius: 8,
+  },
+  noImageText: {
+    color: "#333",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
 

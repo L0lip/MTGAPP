@@ -6,6 +6,7 @@ import { useLocalSearchParams } from "expo-router";
 import { HomeStyles } from '@/components/Page_style';
 import { useTheme } from "@/components/ThemeContext";
 import { useCollections } from "@/components/CollectionContext";
+import { IDstyles } from "@/components/Id_Style";
 
 interface Card {
   id: string;
@@ -54,7 +55,7 @@ export default function CardDetail() {
 
   if (loading) {
     return (
-      <ThemedView style={styles.loadingContainer}>
+      <ThemedView style={IDstyles.loadingContainer}>
         <ActivityIndicator size="large" color="#fff" />
       </ThemedView>
     );
@@ -62,8 +63,8 @@ export default function CardDetail() {
 
   if (!card) {
     return (
-      <ThemedView style={styles.loadingContainer}>
-        <ThemedText style={styles.errorText}>Card not found.</ThemedText>
+      <ThemedView style={IDstyles.loadingContainer}>
+        <ThemedText style={IDstyles.errorText}>Card not found.</ThemedText>
       </ThemedView>
     );
   }
@@ -77,17 +78,17 @@ export default function CardDetail() {
         <View style={HomeStyles.header}>
           <ThemedText type="title" style={{ color: textColor }}>MTG Card Database</ThemedText>
         </View>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={IDstyles.content}>
           <Image
             source={{ uri: card.image_uris?.normal || "https://via.placeholder.com/300" }}
-            style={styles.cardImage}
+            style={IDstyles.cardImage}
             resizeMode="contain"
           />
-          <View style={styles.textContainer}>
-            <ThemedText style={[styles.cardName, { color: textColor }]}>{card.name}</ThemedText>
-            <ThemedText style={[styles.manaCost, { color: textColor }]}>{card.mana_cost}</ThemedText>
-            <ThemedText style={[styles.typeLine, { color: textColor }]}>{card.type_line}</ThemedText>
-            <ThemedText style={[styles.oracleText, { color: textColor }]}>{card.oracle_text}</ThemedText>
+          <View style={IDstyles.textContainer}>
+            <ThemedText style={[IDstyles.cardName, { color: textColor }]}>{card.name}</ThemedText>
+            <ThemedText style={[IDstyles.manaCost, { color: textColor }]}>{card.mana_cost}</ThemedText>
+            <ThemedText style={[IDstyles.typeLine, { color: textColor }]}>{card.type_line}</ThemedText>
+            <ThemedText style={[IDstyles.oracleText, { color: textColor }]}>{card.oracle_text}</ThemedText>
           </View>
         </ScrollView>
       </ThemedView>
@@ -95,50 +96,3 @@ export default function CardDetail() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  content: {
-    alignItems: "center",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  errorText: {
-    fontSize: 18,
-    color: "red",
-  },
-  cardImage: {
-    width: 300,
-    height: 300,
-    marginBottom: 20,
-  },
-  textContainer: {
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  cardName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginVertical: 5,
-  },
-  manaCost: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginVertical: 5,
-  },
-  typeLine: {
-    fontSize: 16,
-    color: "#ccc",
-    marginVertical: 5,
-  },
-  oracleText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginVertical: 10,
-  },
-});

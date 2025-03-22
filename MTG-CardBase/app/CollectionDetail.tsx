@@ -10,6 +10,7 @@ import { useCollections } from '@/components/CollectionContext';
 import { useTheme } from "@/components/ThemeContext";
 import { useHaptics } from '@/components/HapticContext'; 
 import * as Haptics from 'expo-haptics'; 
+import { Collectionstyles } from '@/components/Collection_Style';
 
 interface Card {
   id: string;
@@ -134,8 +135,8 @@ export default function CollectionDetail() {
 
   if (!collection) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText style={styles.errorText}>Error loading collection.</ThemedText>
+      <ThemedView style={Collectionstyles.container}>
+        <ThemedText style={Collectionstyles.errorText}>Error loading collection.</ThemedText>
       </ThemedView>
     );
   }
@@ -146,7 +147,7 @@ export default function CollectionDetail() {
 
   return (
       <ThemedView style={[HomeStyles.container, { backgroundColor: overlayColor }]}>
-        <ThemedText type="title" style={[styles.collectionName, { color: textColor }]}>
+        <ThemedText type="title" style={[Collectionstyles.collectionName, { color: textColor }]}>
           {collection.name}
         </ThemedText>
 
@@ -172,31 +173,9 @@ export default function CollectionDetail() {
             columnWrapperStyle={HomeStyles.cardGrid}
           />
         ) : (
-          <ThemedText style={[styles.noCardsText, { color: textColor }]}>No cards in this collection.</ThemedText>
+          <ThemedText style={[Collectionstyles.noCardsText, { color: textColor }]}>No cards in this collection.</ThemedText>
         )}
       </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  collectionName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  noCardsText: {
-    textAlign: "center",
-    fontSize: 16,
-    marginTop: 20,
-  },
-  errorText: {
-    color: "red",
-    textAlign: "center",
-    fontSize: 18,
-  },
-});
