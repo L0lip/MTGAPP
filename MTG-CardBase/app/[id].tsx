@@ -5,6 +5,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { useLocalSearchParams } from "expo-router";
 import { HomeStyles } from '@/components/Page_style';
 import { useTheme } from "@/components/ThemeContext";
+import { useCollections } from "@/components/CollectionContext";
 
 interface Card {
   id: string;
@@ -24,6 +25,7 @@ export default function CardDetail() {
   const [loading, setLoading] = useState(true);
   const { effectiveTheme } = useTheme();
   const isDark = effectiveTheme === 'dark';
+  const { addRecentCardView } = useCollections();
 
   useEffect(() => {
     console.log("Card ID from params:", id);
@@ -33,6 +35,12 @@ export default function CardDetail() {
         .then((data) => {
           setCard(data);
           setLoading(false);
+          addRecentCardView({
+            id: data.id,
+            name: data.name,
+            imageUri: data.image_uris?.small,
+            timestamp: Date.now(),
+          });
         })
         .catch((error) => {
           console.error("Error fetching card details:", error);

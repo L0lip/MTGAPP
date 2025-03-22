@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Dimensions } from 'react-native';
 
 export const HomeStyles = StyleSheet.create({
   container: {
@@ -90,8 +90,8 @@ export const HomeStyles = StyleSheet.create({
   },
   backgroundImage: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
     backgroundattachment: 'fixed',
     backgroundposition: 'center',
   },

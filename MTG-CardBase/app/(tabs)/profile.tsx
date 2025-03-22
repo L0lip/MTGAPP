@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, TextInput, ScrollView, TouchableOpacity, Button, Alert, ImageBackground, KeyboardAvoidingView, Platform } from "react-native";
+import { View, TextInput, ScrollView, TouchableOpacity, Button, Alert, ImageBackground, Platform } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -13,19 +13,34 @@ import * as Haptics from 'expo-haptics'; // Import expo-haptics to trigger feedb
 export default function ProfilePage() {
   const { effectiveTheme } = useTheme();
   const isDark = effectiveTheme === 'dark';
-  const { collections, setCollections } = useCollections();
+  const { collections, setCollections, toggleFavorite, addRecentActivity } = useCollections();
   const [newCollectionName, setNewCollectionName] = useState("");
   const router = useRouter();
   const { hapticsEnabled } = useHaptics(); 
 
   const addCollection = (name: string) => {
     if (!name.trim()) return;
-    const newCollection = { id: Date.now().toString(), name, cards: [] };
+    const newCollection = { id: Date.now().toString(), name, cards: [], isFavorite: false };
     setCollections((prev) => [...prev, newCollection]);
     setNewCollectionName("");
+    addRecentActivity({
+      type: "add",
+      collectionId: newCollection.id,
+      collectionName: newCollection.name,
+      timestamp: Date.now(),
+    });
   };
 
   const removeCollection = (collectionID: string) => {
+    const collection = collections.find((col) => col.id === collectionID);
+    if (collection) {
+      addRecentActivity({
+        type: "remove",
+        collectionId: collection.id,
+        collectionName: collection.name,
+        timestamp: Date.now(),
+      });
+    }
     setCollections(collections.filter((col) => col.id !== collectionID));
   };
 
@@ -46,6 +61,12 @@ export default function ProfilePage() {
       pathname: "/CollectionDetail",
       params: { collection: JSON.stringify(collection) },
     });
+    addRecentActivity({
+      type: "view",
+      collectionId: collection.id,
+      collectionName: collection.name,
+      timestamp: Date.now(),
+    });
   };
 
   // Adjust overlay transparency to make the background image more visible
@@ -59,10 +80,6 @@ export default function ProfilePage() {
       imageStyle={HomeStyles.backgroundImageStyle}
       resizeMode="contain"
     >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
         <View style={[HomeStyles.container, { backgroundColor: overlayColor }]}>
           <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 40 }}>
             <ThemedText type="title" style={{ color: textColor, textAlign: "center" }}>
@@ -122,18 +139,25 @@ export default function ProfilePage() {
                   <ThemedText style={{ color: textColor }}>{collection.name}</ThemedText>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                onPress={() => {confirmRemoveCollection(collection.id)
-                if (hapticsEnabled) {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
-                }}>
+                  onPress={() => {confirmRemoveCollection(collection.id)
+                    if (hapticsEnabled) {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                  }}>
                   <Ionicons name="trash-outline" size={24} color={textColor} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={() => {toggleFavorite(collection.id)
+                    if (hapticsEnabled) {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                  }}>
+                  <Ionicons name={collection.isFavorite ? "heart" : "heart-outline"} size={24} color={textColor} />
                 </TouchableOpacity>
               </View>
             ))}
           </ScrollView>
         </View>
-      </KeyboardAvoidingView>
     </ImageBackground>
   );
 }
