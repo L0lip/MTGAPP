@@ -1,5 +1,5 @@
 import React from "react";
-import { View, ScrollView, ImageBackground, TouchableOpacity, StyleSheet } from "react-native";
+import { View, ScrollView, ImageBackground, TouchableOpacity, StyleSheet, Linking } from "react-native";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { HomeStyles } from '@/components/Page_style';
@@ -21,6 +21,11 @@ export default function HomePage() {
 
   // Filter favorited collections
   const favoritedCollections = collections.filter(collection => collection.isFavorite);
+
+  const handleLearnMorePress = () => {
+    const url = "https://magic.wizards.com/en/how-to-play";
+    Linking.openURL(url).catch(err => console.error("Failed to open URL:", err));
+  };
 
   return (
     <ImageBackground 
@@ -85,7 +90,6 @@ export default function HomePage() {
                     }
                   }}
                 >
-                  
                   <CardImage uri={card.imageUri} />
                   <ThemedText style={{ color: textColor, textAlign: "center" }}>{card.name}</ThemedText>
                 </TouchableOpacity>
@@ -94,6 +98,20 @@ export default function HomePage() {
               <ThemedText style={{ color: textColor }}>No recent activity</ThemedText>
             )}
           </ScrollView>
+
+          {/* Learn More Button */}
+          <TouchableOpacity
+            style={styles.learnMoreButton}
+            onPress={() => {
+              if (hapticsEnabled) {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }
+              handleLearnMorePress();
+            }
+            }
+          >
+            <ThemedText style={styles.learnMoreButtonText}>Learn How to Play Magic: The Gathering</ThemedText>
+          </TouchableOpacity>
         </ScrollView>
       </ThemedView>
     </ImageBackground>
@@ -110,5 +128,17 @@ const styles = StyleSheet.create({
   cardImage: {
     width: 100,
     height: 140,
+  },
+  learnMoreButton: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: "#007bff",
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  learnMoreButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });

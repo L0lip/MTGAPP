@@ -239,8 +239,8 @@ export default function SearchPage() {
               <TouchableOpacity onPress={() => {handleCardPress(card)
                 if (hapticsEnabled) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
-              }} 
+              }
+            }}
               
               style={HomeStyles.cardContent}>
                 {card.image_uris?.small ? (
