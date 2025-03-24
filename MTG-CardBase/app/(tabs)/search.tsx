@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, TextInput, FlatList, TouchableOpacity, Modal, Button, Alert, ActivityIndicator, ImageBackground } from "react-native";
+import { View, TextInput, FlatList, TouchableOpacity, Modal, Button, Alert, ActivityIndicator, ImageBackground, StyleSheet } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -11,7 +11,11 @@ import { useCollections } from "@/components/CollectionContext"; // Importing th
 import { useTheme } from "@/components/ThemeContext";
 import { useHaptics } from '@/components/HapticContext'; 
 import * as Haptics from 'expo-haptics'; 
-import { camera } from 'expo-camera';
+import Camera, { CameraType } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+
+console.log('CameraType:', CameraType);
+
 
 interface Card {
   id: string;
@@ -47,11 +51,15 @@ export default function SearchPage() {
   const [hasMore, setHasMore] = useState(true); // State to track if there are more cards to load
   const { hapticsEnabled } = useHaptics(); // Access the hapticsEnabled state
   const [activeModal, setActiveModal] = useState<'none' | 'scan' | 'collection'>('none');
-
-
-  const [hasPermission, setHasPermission] = useState(null); // State for camera permission
-  const [scanning, setScanning] = useState(false); // State to control scanning status
+  const [facing, setFacing] = useState<CameraType>('back');
+  const [permission, requestPermission] = useCameraPermissions();
+  
   const cameraRef = useRef<Camera | null>(null);
+  const [type, setType] = useState(CameraType?.back || 'back');
+  const [scanning, setScanning] = useState(false);
+  
+  
+  
 
   // Fetch sets when the component mounts
   useEffect(() => {
@@ -69,13 +77,9 @@ export default function SearchPage() {
     setCards([]); // Reset cards when search, selectedSet, or selectedColor changes
     setPage(1); // Reset page to 1
     setHasMore(true); // Reset hasMore to true
+    // Add fetchCards() here instead of in a separate useEffect
+    fetchCards();
   }, [search, selectedSet, selectedColor]);
-
-  useEffect(() => {
-    if (hasMore) {
-      fetchCards();
-    }
-  }, [search, selectedSet, selectedColor, page]); // Re-fetch when search, selectedSet, selectedColor, or page changes
 
   useEffect(() => {
     if (activeModal !== 'none') {
@@ -86,60 +90,72 @@ export default function SearchPage() {
     }
   }, [activeModal]);
 
-  // Request camera permission  
-  useEffect(() => {
-    const requestCameraPermission = async () => {
-      console.log('Requesting camera permission...');
-      const { status } = await Camera.requestPermissionsAsync();
-      console.log('Permission status:', status);
-      setHasPermission(status === 'granted');
-    };
-  
-    requestCameraPermission();
-  }, []);
-  
-  
-  
-
   // Function to handle the capture of a card image
   const captureCardImage = async () => {
-    if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync();
+    if (!cameraRef.current) return;
+    
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        base64: true,
+        exif: false
+      });
+  
       if (photo.uri) {
-        // Send photo to Magic Card Scanner API for processing
-        scanCard(photo.uri);
+        setScanning(true);
+        // Show a preview of the captured image
+        Alert.alert(
+          "Card Captured",
+          "Would you like to scan this card?",
+          [
+            {
+              text: "Cancel",
+              onPress: () => setScanning(false),
+              style: "cancel"
+            },
+            {
+              text: "Scan",
+              onPress: async () => {
+                await scanCard(photo.uri);
+              }
+            }
+          ]
+        );
       }
+    } catch (error) {
+      console.error('Error taking picture:', error);
+      Alert.alert('Error', 'Failed to capture image');
+      setScanning(false);
     }
   };
-
+  
   // Function to send the image to the API
   const scanCard = async (imageUri: string) => {
-    setScanning(true); // Set scanning to true while waiting for the response
-
-    // Convert the image to base64 or send as a file depending on API requirements
-    const base64Image = await fetch(imageUri)
-      .then(res => res.blob())
-      .then(blob => blob.arrayBuffer())
-      .then(buffer => Buffer.from(buffer).toString('base64'));
-
     try {
-      const response = await fetch('https://your-magic-card-scanner-api-endpoint', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: base64Image, // or send as FormData depending on the API's expectation
-        }),
+      // First attempt to get card info from Scryfall using image
+      const formData = new FormData();
+      formData.append('file', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'card.jpg',
       });
+  
+      // You'll need to replace this with your actual card recognition API endpoint
+      const response = await fetch('YOUR_CARD_RECOGNITION_API_ENDPOINT', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+  
       const data = await response.json();
       
-      if (data && data.card) {
-        // Handle card data received from the API
-        setSelectedCard(data.card); // Set selected card based on API response
-        Alert.alert('Card Scanned', `Card Name: ${data.card.name}`);
+      if (data.card) {
+        setSelectedCard(data.card);
+        setActiveModal('collection'); // Open collection modal to add card
       } else {
-        Alert.alert('Scan Failed', 'Could not recognize the card.');
+        Alert.alert('Card Not Found', 'Could not recognize the card. Please try again.');
       }
     } catch (error) {
       console.error('Error scanning card:', error);
@@ -149,29 +165,86 @@ export default function SearchPage() {
     }
   };
 
-  const fetchCards = () => {
-    setLoading(true);
-    let query = `q=${encodeURIComponent(search)}`;
-    if (selectedSet) query += `+set:${selectedSet}`;
-    if (selectedColor) query += `+color:${selectedColor}`;
+  // Update the fetchCards function
+const fetchCards = () => {
+  setLoading(true);
+  let query = [];
+  
+  // Add search term if present
+  if (search) {
+    query.push(search);
+  }
+  
+  // Add set filter if selected
+  if (selectedSet) {
+    query.push(`set:${selectedSet}`);
+  }
+  
+  // Add color filter if selected
+  if (selectedColor) {
+    if (selectedColor === "multicolor") {
+      query.push("c>1"); // Cards with more than one color
+    } else if (selectedColor === "colorless") {
+      // Updated colorless query to exclude lands and only show truly colorless cards
+      query.push("(c=0 -t:land) or m={C}"); // Cards with no colors (excluding lands) OR cards with colorless mana cost
+    } else if (selectedColor === "land") {
+      query.push("t:land"); // Search for lands
+    } else {
+      query.push(`c:${selectedColor}`); // Specific color
+    }
+  }
 
-    fetch(`https://api.scryfall.com/cards/search?${query}&page=${page}`)
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.object === "list") {
-          const sortedCards = data.data.sort((a: Card, b: Card) => a.name.localeCompare(b.name)); // Sort alphabetically
-          setCards((prevCards) => [...prevCards, ...sortedCards]); // Append new cards to existing list
-          setHasMore(data.has_more); // Update hasMore based on API response
-        } else {
-          setHasMore(false); // No more cards to load
+  // Join all query parts with AND operator
+  const finalQuery = query.join(" ");
+  
+  fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(finalQuery)}&unique=cards&order=name&page=${page}`)
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.object === "list") {
+        const newCards = data.data;
+        setCards((prevCards) => {
+          if (page === 1) {
+            return newCards; // Replace all cards if it's the first page
+          }
+          // Add new cards while preventing duplicates
+          const existingIds = new Set(prevCards.map(card => card.id));
+          const uniqueNewCards = newCards.filter(card => !existingIds.has(card.id));
+          return [...prevCards, ...uniqueNewCards];
+        });
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(false);
+        if (page === 1) {
+          setCards([]); // Clear cards if no results found
         }
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Error fetching cards:", error);
-        setLoading(false);
-      });
-  };
+      }
+      setLoading(false);
+    })
+    .catch((error) => {
+      console.error("Error fetching cards:", error);
+      setLoading(false);
+      setHasMore(false);
+      if (page === 1) {
+        setCards([]); // Clear cards on error
+      }
+    });
+};
+
+// Update the useEffect for search changes
+useEffect(() => {
+  setCards([]); // Clear existing cards
+  setPage(1); // Reset to first page
+  setHasMore(true); // Reset hasMore flag
+  fetchCards(); // Fetch new results
+}, [search, selectedSet, selectedColor]); // Dependencies that should trigger a new search
+
+// Update loadMoreCards function
+const loadMoreCards = () => {
+  if (!loading && hasMore) {
+    setPage(prev => prev + 1);
+    fetchCards();
+  }
+};
 
   const handleAddCard = (card: Card) => {
     setSelectedCard(card);
@@ -206,7 +279,7 @@ export default function SearchPage() {
   };
 
   // Filter color options based on search input
-  const filteredColors = ["w", "u", "b", "r", "g", "multicolor", "colorless"]
+  const filteredColors = ["w", "u", "b", "r", "g", "multicolor", "colorless", "land"]
     .filter((color) =>
       color.toLowerCase().includes(colorSearch.toLowerCase()) // Check if the search term is part of the color string
     );
@@ -223,7 +296,12 @@ export default function SearchPage() {
       const cardColorsLower = card.colors ? card.colors.map((color) => color.toLowerCase()) : [];
 
       if (selectedColor === "multicolor") {
-        return cardColorsLower.length > 1; // Check if card has more than one color for multicolor
+        return cardColorsLower.length > 1;
+      } else if (selectedColor === "colorless") {
+        // Only show cards that are truly colorless (no colors and not a land)
+        return cardColorsLower.length === 0 && !card.type_line?.toLowerCase().includes('land');
+      } else if (selectedColor === "land") {
+        return card.type_line?.toLowerCase().includes('land');
       }
 
       return cardColorsLower.includes(selectedColorLower); // Check if the selected color is in the card's colors
@@ -232,15 +310,33 @@ export default function SearchPage() {
     return true; // If no color filter is selected, return all cards
   });
 
-  const loadMoreCards = () => {
-    if (!loading && hasMore) {
-      setPage((prevPage) => prevPage + 1);
-    }
-  };
-
   // Adjust overlay transparency to make the background image more visible
   const overlayColor = isDark ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.1)";
   const textColor = isDark ? "white" : "black";
+
+  // Add this function after your existing state declarations
+  const clearFilters = () => {
+    setSelectedColor("");
+    setSelectedSet("");
+    setColorSearch("");
+    setSearchSets("");
+    setPage(1);
+  };
+
+  // Add these functions after your existing state declarations
+const clearSearchFilter = () => {
+  setSearch("");
+};
+
+const clearColorFilter = () => {
+  setSelectedColor("");
+  setColorSearch("");
+};
+
+const clearSetFilter = () => {
+  setSelectedSet("");
+  setSearchSets("");
+};
 
   return (
     <ImageBackground
@@ -255,43 +351,67 @@ export default function SearchPage() {
         </View>
         {/* Add a button to open the camera */}
         <TouchableOpacity onPress={() => {
-  if (hasPermission) {
+  if (permission) {
     setActiveModal('scan'); // Only open modal if permission is granted
   } else {
     Alert.alert('Permission Denied', 'Please grant camera access to scan a card.');
   }
 }}>
   <Ionicons name="camera" size={30} color={textColor} />
-  <ThemedText>Scan Card</ThemedText>
+  <ThemedText style={{ color: textColor}}>Scan Card</ThemedText>
 </TouchableOpacity>
 
         {/* Camera Modal */}
         {activeModal === 'scan' && (
-  <Modal visible={activeModal === 'scan'} transparent={false} animationType="slide">
-    <View style={{ flex: 1 }}>
-      {hasPermission === null ? (
-        // Show loading while waiting for permission
-        <ActivityIndicator size="large" color="#0000ff" />
-      ) : !hasPermission ? (
-        // Show message when permission is denied
-        <ThemedText>No access to camera</ThemedText>
-      ) : (
-        // Camera is ready, render Camera component
-        <Camera
-          style={{ flex: 1 }}
-          type={Camera.Constants.Type.back}
-          ref={cameraRef}
-        >
-          <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
-            <TouchableOpacity onPress={captureCardImage} style={{ backgroundColor: 'white', padding: 10, borderRadius: 50 }}>
-              <Ionicons name="camera" size={40} color="black" />
-            </TouchableOpacity>
+    <Modal visible={activeModal === 'scan'} transparent={false} animationType="slide">
+      <View style={{ flex: 1 }}>
+        {!permission ? (
+          <ActivityIndicator size="large" color="#0000ff" />
+        ) : !permission.granted ? (
+          <View style={styles.container}>
+            <ThemedText>We need your permission to show the camera</ThemedText>
+            <Button onPress={requestPermission} title="Grant Permission" />
           </View>
-        </Camera>
-      )}
-    </View>
-  </Modal>
-)}
+        ) : scanning ? (
+          <View style={[styles.container, { alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color="#0000ff" />
+            <ThemedText style={{ marginTop: 20 }}>Scanning card...</ThemedText>
+          </View>
+        ) : (
+          <View style={styles.container}>
+            <CameraView 
+              style={styles.camera} 
+              facing={facing}
+              ref={cameraRef}
+            >
+              <View style={{position: "absolute",inset: 0, width: "100%", flexDirection: "row", justifyContent: "space-between"}}>
+                <TouchableOpacity 
+                  style={styles.captureButton}
+                  onPress={captureCardImage}
+                >
+                  <Ionicons name="camera" size={40} color="white" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.flipButton}
+                  onPress={() => setFacing(current => (current === 'back' ? 'front' : 'back'))}
+                >
+                  <Ionicons name="camera-reverse" size={30} color="white" />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.closeButton}
+                  onPress={() => setActiveModal('none')}
+                >
+                  <Ionicons name="close" size={30} color="white" />
+                </TouchableOpacity>
+              </View>
+            </CameraView>
+          </View>
+        )}
+      </View>
+    </Modal>
+  )}
 
           
           {/* Search Section */}
@@ -304,6 +424,19 @@ export default function SearchPage() {
             onChangeText={setSearch}
           />
           <Ionicons name="search" style={HomeStyles.searchIcon} size={20} color={textColor} />
+          {search && (
+    <TouchableOpacity
+      style={[HomeStyles.clearSearchButton, { backgroundColor: isDark ? "#444" : "#ddd" }]}
+      onPress={() => {
+        clearSearchFilter();
+        if (hapticsEnabled) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }}
+    >
+      <Ionicons name="close-circle" size={20} color={textColor} />
+    </TouchableOpacity>
+  )}
         </View>
 
         {/* Filter Section */}
@@ -327,6 +460,19 @@ export default function SearchPage() {
               <Picker.Item key={color} label={color.toUpperCase()} value={color} />
             ))}
           </Picker>
+          {(selectedColor || colorSearch) && (
+    <TouchableOpacity
+      style={[HomeStyles.clearFilterButton, { backgroundColor: isDark ? "#444" : "#ddd" }]}
+      onPress={() => {
+        clearColorFilter();
+        if (hapticsEnabled) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }}
+    >
+      <Ionicons name="close-circle" size={20} color={textColor} />
+    </TouchableOpacity>
+  )}
         </View>
 
         {/* Set Filter */}
@@ -349,7 +495,35 @@ export default function SearchPage() {
               <Picker.Item key={set.code} label={set.name} value={set.code}/>
             ))}
           </Picker>
+          {(selectedSet || searchSets) && (
+    <TouchableOpacity
+      style={[HomeStyles.clearFilterButton, { backgroundColor: isDark ? "#444" : "#ddd" }]}
+      onPress={() => {
+        clearSetFilter();
+        if (hapticsEnabled) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }}
+    >
+      <Ionicons name="close-circle" size={20} color={textColor} />
+    </TouchableOpacity>
+  )}
         </View>
+
+        {/* Clear Filters Button */}
+        <TouchableOpacity
+          style={[HomeStyles.clearButton, { backgroundColor: isDark ? "#444" : "#ddd" }]}
+          onPress={() => {
+            clearFilters();
+            if (hapticsEnabled) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+          }}
+        >
+          <ThemedText style={[HomeStyles.clearButtonText, { color: textColor }]}>
+            Clear Filters
+          </ThemedText>
+        </TouchableOpacity>
 
         {/* Card Grid */}
         <FlatList
@@ -421,3 +595,44 @@ export default function SearchPage() {
     </ImageBackground>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  camera: {
+    flex: 1,
+  },
+  buttonContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    margin: 20,
+  },
+  captureButton: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 15,
+    borderRadius: 50,
+  },
+  flipButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 10,
+    borderRadius: 50,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: 10,
+    borderRadius: 50,
+  }
+});

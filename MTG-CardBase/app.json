@@ -32,6 +32,12 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow MTG-CardBase to access your camera to scan cards."
+        }
       ]
     ],
     "experiments": {

@@ -19,11 +19,13 @@ export const HomeStyles = StyleSheet.create({
   searchContainer: {
     position: 'relative',
     marginBottom: 16,
+    alignItems: 'center',
   },
   searchInput: {
     width: '100%',
     padding: 12,
     paddingLeft: 40,
+    paddingRight: 70,
     borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     color: '#000000',
@@ -36,6 +38,12 @@ export const HomeStyles = StyleSheet.create({
     left: 10,
     top: 12,
     zIndex: 1,
+  },
+  clearSearchButton: {
+    position: 'absolute',
+    right: 10,
+    padding: 10,
+  
   },
   cardGrid: {
     justifyContent: 'space-between',
@@ -149,5 +157,34 @@ export const HomeStyles = StyleSheet.create({
     color: "white",  // White text to contrast against the red
     fontSize: 14,  // Font size for the button text
     fontWeight: 'bold',  // Bold text to make it stand out
+  },
+  clearButton: {
+    marginHorizontal: 20,
+    marginVertical: 10,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  clearButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  clearFilterButton: {
+    position: 'absolute',
+    right: 10,
+    padding: 5,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  filterContainer: {
+    position: 'relative',
   },
 });

@@ -18,6 +18,18 @@ interface Card {
     normal: string;
     small: string;
   };
+  // Add split card properties
+  card_faces?: Array<{
+    name: string;
+    type_line: string;
+    oracle_text: string;
+    mana_cost: string;
+    image_uris?: {
+      normal: string;
+      small: string;
+    };
+  }>;
+  layout?: string; // To check if it's a split card
 }
 
 export default function CardDetail() {
@@ -74,25 +86,49 @@ export default function CardDetail() {
   const textColor = isDark ? "white" : "black";
 
   return (
-      <ThemedView style={[HomeStyles.container, { backgroundColor: overlayColor }]}>
-        <View style={HomeStyles.header}>
-          <ThemedText type="title" style={{ color: textColor }}>MTG Card Database</ThemedText>
-        </View>
-        <ScrollView contentContainerStyle={IDstyles.content}>
-          <Image
-            source={{ uri: card.image_uris?.normal || "https://via.placeholder.com/300" }}
-            style={IDstyles.cardImage}
-            resizeMode="contain"
-          />
-          <View style={IDstyles.textContainer}>
-            <ThemedText style={[IDstyles.cardName, { color: textColor }]}>{card.name}</ThemedText>
-            <ThemedText style={[IDstyles.manaCost, { color: textColor }]}>{card.mana_cost}</ThemedText>
-            <ThemedText style={[IDstyles.typeLine, { color: textColor }]}>{card.type_line}</ThemedText>
-            <ThemedText style={[IDstyles.oracleText, { color: textColor }]}>{card.oracle_text}</ThemedText>
-          </View>
-        </ScrollView>
-      </ThemedView>
-  
+    <ThemedView style={[HomeStyles.container, { backgroundColor: overlayColor }]}>
+      <View style={HomeStyles.header}>
+        <ThemedText type="title" style={{ color: textColor }}>MTG Card Database</ThemedText>
+      </View>
+      <ScrollView contentContainerStyle={IDstyles.content}>
+        {card.layout === 'split' || card.layout === 'transform' || card.layout === 'modal_dfc' ? (
+          // Render split/transform card faces
+          card.card_faces?.map((face, index) => (
+            <View key={face.name} style={IDstyles.cardFaceContainer}>
+              <Image
+                source={{ uri: face.image_uris?.normal || card.image_uris?.normal || "https://via.placeholder.com/300" }}
+                style={IDstyles.cardImage}
+                resizeMode="contain"
+              />
+              <View style={IDstyles.textContainer}>
+                <ThemedText style={[IDstyles.cardName, { color: textColor }]}>{face.name}</ThemedText>
+                <ThemedText style={[IDstyles.manaCost, { color: textColor }]}>{face.mana_cost}</ThemedText>
+                <ThemedText style={[IDstyles.typeLine, { color: textColor }]}>{face.type_line}</ThemedText>
+                <ThemedText style={[IDstyles.oracleText, { color: textColor }]}>{face.oracle_text}</ThemedText>
+              </View>
+              {index < card.card_faces.length - 1 && (
+                <View style={IDstyles.divider} />
+              )}
+            </View>
+          ))
+        ) : (
+          // Render normal card
+          <>
+            <Image
+              source={{ uri: card.image_uris?.normal || "https://via.placeholder.com/300" }}
+              style={IDstyles.cardImage}
+              resizeMode="contain"
+            />
+            <View style={IDstyles.textContainer}>
+              <ThemedText style={[IDstyles.cardName, { color: textColor }]}>{card.name}</ThemedText>
+              <ThemedText style={[IDstyles.manaCost, { color: textColor }]}>{card.mana_cost}</ThemedText>
+              <ThemedText style={[IDstyles.typeLine, { color: textColor }]}>{card.type_line}</ThemedText>
+              <ThemedText style={[IDstyles.oracleText, { color: textColor }]}>{card.oracle_text}</ThemedText>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </ThemedView>
   );
 }
 
