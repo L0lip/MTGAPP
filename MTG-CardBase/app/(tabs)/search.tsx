@@ -141,7 +141,7 @@ export default function SearchPage() {
       });
   
       // You'll need to replace this with your actual card recognition API endpoint
-      const response = await fetch('YOUR_CARD_RECOGNITION_API_ENDPOINT', {
+      const response = await fetch('https://gitlab.com/magic-card-scanner/magic-card-scanner-api', {
         method: 'POST',
         body: formData,
         headers: {
